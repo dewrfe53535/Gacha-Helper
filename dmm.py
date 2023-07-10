@@ -24,7 +24,7 @@ class DMM:
         self.session = Session()
         self.session.headers.update(
             {
-                "user-agent": "DMMGamePlayer5-Win/5.0.95 Electron/15.1.2",
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) dmmgameplayer5/5.2.16 Chrome/114.0.5735.134 Electron/25.2.0 Safari/537.36",
                 "content-type": "application/json",
                 "client-app": "DMMGamePlayer5",
                 "client-version": "5.0.95",
@@ -84,13 +84,15 @@ class DMM:
         login_url = self.get("loginurl")["data"]["url"]
         login_page = self.session.get(login_url).text
         # setup login args
-        login_soup = BeautifulSoup(login_page)
-        login_soup_form = login_soup.select_one("section.area-login-mail").select_one(
+        login_soup = BeautifulSoup(login_page,'html.parser')
+        login_soup_form = login_soup.select_one(".area-login").select_one(
             "form"
         )
+        login_list_clean = login_soup_form.select("input")
+        del login_list_clean[5] # remove login button
         login_fields = {
             inp.attrs["name"]: inp.attrs["value"]
-            for inp in login_soup_form.select("input")
+            for inp in login_list_clean
         }
         login_fields["login_id"] = user
         login_fields["password"] = password
@@ -99,13 +101,7 @@ class DMM:
         # execute login
         auth_url = login_soup_form.attrs["action"]
         auth_method = login_soup_form.attrs["method"]
-        auth_page_res = self.session.request(auth_method, auth_url, data=login_fields)
-        if len(auth_page_res.history) != 1:
-            raise ValueError("Login failed")
-        # finish authentication
-        auth_href = re.search(b'href\s*=\s*"(.+?)"', auth_page_res.content)[1].decode("unicode_escape")
-        auth1 = self.session.get(auth_href, allow_redirects=False)
-        self.session.get(auth1.next.url, allow_redirects=False)
+        auth_page_res = self.session.request(auth_method, 'https://accounts.dmm.com'+auth_url, data=login_fields, allow_redirects=False)
         self.session.headers["content-type"] = "application/json"
 
     def userinfo(self, type: str = "all"):
@@ -405,3 +401,4 @@ class DMM:
         return self.session.get(
             f"https://{self.host}/{self.version}/{path.strip('/')}", json=data
         ).json()
+        
